@@ -1,0 +1,250 @@
+﻿
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Jacob Kukuk's Casino Slots Rewards Tracking Demo</title>
+    <style type="text/css">
+       html{
+           font-family:Arial;
+       }
+    </style>
+</head>
+<body>
+
+
+    <div class="container">
+
+        <div class="row">
+            <h1>Jacob Kukuk's Casino Slots Rewards Tracking Demo</h1>
+            <p style="font-size:small;">This portfolio demo of a casino slot machine reward system I created to demonstrate my ability in developing Full Stack projects and work with SQL. This project is an example of my coding and SQL skills, visual skills are not presented in this functional demo. To see the project code visit my GitHub.</p>
+            <p style="font-size:small;">This portfolio demo uses C#, Javascript, Jquery, SignalR, Howler.js, Chart.js, and SQL Express delivered from App_Data .mdf.</p>
+            <p style="font-size:small;">Users visit the page and enter a fake rewards card number, that number tracks rewards and plays. The page is persistent, users can be on the site thus acting as multiple slot machines in a casino, when someone else wins others are notified, the simple slot machine I developed named (HireJacob MEGAWIN) is a single pay line machine. It works like a real slot machine randomly generating a result until a play is performed, 2 sets of images exist (full Spin, Slot 3) with the generated numbers being entered pre render, sounds are played from a sprite that is played using the Howler.js library. As plays are performed rewards are given and house revenue updated from a base house ledger of $1,000,000.</pstyle="font-size:small;">
+
+        </div>
+
+        <div style="position:absolute; left:0px;">
+            <img id="slotmachine" src="Assets/slotmachine_slot3.png" style="width:300px;cursor:grabbing;" />
+            <p><small>Click slot machine to play.</small></p>
+
+        </div>
+
+
+
+        <div style="position:absolute; left:300px; ">
+            <small>Rewards Number:</small>
+            <input type="text" disabled="disabled" id="rewardsnumber" /> <br />
+
+            <small>Total Rewards Points:</small>
+            <input type="text" disabled="disabled" id="rewardsamt" /> <br />
+            <p style="font-size:x-small;">
+                Rewards Table (5 Pts = Free Meal, 10 Pts = Fuel Discount)<br />
+                Enabled Rewards: <div id="rewardsdiv"></div>
+            </p>
+            <br />
+            <small id="playdisplay">Slot Machine Chip Monitor: </small>
+            <input type="text" disabled="disabled" id="slotnumber" /> <br />
+
+            <small>Winnings:</small>
+            <input type="text" disabled="disabled" id="winnings" /> <br />
+
+            <small>Win Status:</small>
+            <input type="text" disabled="disabled" id="winstat" /> <br />
+
+            <small>Win Amount:</small>
+            <input type="text" disabled="disabled" id="winamt" /> <br />
+
+            <p id="winnerswindow">
+
+            </p>
+
+
+            <canvas id="myChart" width="200" height="100"></canvas>
+
+
+        </div>
+
+
+
+
+
+    </div>
+
+
+
+
+
+    <script src="Scripts/jquery-1.6.4.js"></script>
+    <script src="Scripts/jquery.signalR-2.3.0.js"></script>
+    <script src="/casino/signalr/hubs"></script>
+    <script src="Scripts/howler/src/howler.core.js"></script>
+    <script src="Scripts/Chart.js/Chart.js"></script>
+
+
+    <script>
+        var ctx = document.getElementById("myChart").getContext('2d');
+        var myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [""],
+                datasets: [{
+                    label: 'Live Casino Ledger',
+                    data: []
+                }]
+            }
+        });
+    </script>
+
+
+    <script type="text/javascript">
+        $(function () {
+
+            var sound = new Howl({
+                src: ['/casino/Assets/slotmachinesprite.mp3'],
+                sprite: {
+                    play: [0, 4000],
+                    win: [4000, 5000],
+                    yahoo: [10000, 4500],
+                    ping: [15000, 1000]
+                }
+            });
+
+            var slot = $.connection.slotHub;
+            var slotenabled = false;
+            var winnings = 0;
+
+            slot.client.numberreturn = function (message) {
+                $('#slotnumber').val(message);
+            };
+
+            slot.client.annoucewinner = function (winner) {
+                sound.play('yahoo');
+                console.log(winner + "has hit a winner!");
+                $('#winnerswindow').html("<b style='color:green;'>WE HAVE A WINNER! <br> CONGRATS REWARDS MEMBER " + winner + "</b>");
+                setTimeout(function () {
+                    $('#winnerswindow').html("");
+                }, 5000);
+            };
+            
+            slot.client.returnledger = function (amt) {
+                console.log("Current Ledger $" + amt);
+                addData(myChart, "", amt);
+
+            };
+
+            function addData(chart, label, data) {
+                chart.data.labels.push(label);
+                chart.data.datasets.forEach((dataset) => {
+                    dataset.data.push(data);
+                });
+                chart.update();
+            }
+            
+
+
+            var freemealping = false;
+            var fuelping = false;
+
+            slot.client.rewardsreturn = function (rewardamt) {
+                console.log(rewardamt);
+                $('#rewardsamt').val(rewardamt);
+
+                var rewardrtn = "";
+                if (rewardamt >= 5) {
+                    rewardrtn += "Free Meal! "
+                    if (freemealping != true) {
+                        sound.play('ping');
+                        freemealping = true;
+                    }
+                }
+                if (rewardamt >= 10) {
+                    rewardrtn += "Fuel Discount! "
+                    if (fuelping != true) {
+                        sound.play('ping');
+                        fuelping = true;
+                    }
+                }
+
+                $('#rewardsdiv').text(rewardrtn);
+            };
+
+            slot.client.errorrtn = function (error) {
+                console.log(error);
+            };
+
+            slot.client.resultreturn = function (number, win, wincredits) {
+                setTimeout(function () {
+                    console.log(number + " " + win + " " + wincredits);
+                    $('#slotmachine').attr("src", "/casino/handlers/slotresult.aspx?result=" + number);
+
+                    if (win == true) {
+                        sound.play('win');
+                    }
+
+                    winnings = winnings + wincredits;
+
+                    $('#winnings').val(winnings);
+                    $('#winstat').val(win);
+                    $('#winamt').val(wincredits);
+
+                    slotenabled = true;
+                    slot.server.genrewards($('#rewardsnumber').val());
+                }, 3400);
+
+
+            };
+
+
+
+            $('#rewardsnumber').val(prompt('Enter fake casino Rewards Number:', ''));
+
+
+
+
+
+
+            $.connection.hub.start().done(function () {
+                sound.play('ping');
+                slotenabled = true;
+                var slotchiptimer = setInterval(slottimerfunt, 300);
+                function slottimerfunt() {
+                    slot.server.genslots();
+                }
+
+                var ledgertimer = setInterval(ledgerfunct, 10000);
+                function ledgerfunct() {
+                    slot.server.getledger();
+                }
+
+                var rewardsupdate = setInterval(rewardsupdatefunct, 5000);
+                function rewardsupdatefunct() {
+                    slot.server.genrewards($('#rewardsnumber').val());
+                }
+
+                $('#slotmachine').click(function () {
+                    if (slotenabled != false) {
+                        sound.play('play');
+                        $('#slotmachine').attr("src", "Assets/slotmachine_fullspin.png");
+                        slotenabled = false;
+                        slot.server.slotresult($('#slotnumber').val(), $('#rewardsnumber').val());
+                    }
+                });
+
+
+
+
+            });
+
+        });
+    </script>
+
+
+
+
+
+
+
+
+
+</body>
+</html>
