@@ -85,13 +85,13 @@ namespace SignalRChat
                 {
                     case "777":
                         win = true;
-                        wincredits = 500;
+                        wincredits = 5;
                         Clients.Others.annoucewinner(member);
                         break;
 
                     case "333":
                         win = true;
-                        wincredits = 200;
+                        wincredits = 2;
                         Clients.Others.annoucewinner(member);
                         break;
 
